@@ -3,8 +3,6 @@
 /**
  * Thanks to https://gist.github.com/jgcmarins/3bfd75b7978acb7d7b1c97a8564d2e64
  */
-const REF = 'master';
-
 const fs = require("fs").promises;
 const path = require("path");
 const os = require('os');
@@ -20,23 +18,24 @@ const { Octokit } = require("@octokit/rest");
 //import { exec as execCb } from 'child_process';
 //import util from 'util';
 //const exec = util.promisify(execCb);
+const simpleGit = require('simple-git');
+const git = simpleGit();
 
 // npm --no-git-tag-version version from-git
 
-const target_commitish = "master";
 const gitTokenFileName = ".gittoken";
 const changelogFileName = "CHANGELOG.md";
 
-const packageJson = async (octo, repo, { path = 'package.json' } = {}) => {
-    const response = await octo.repos.getContent({ path, ...repo });
+const packageJson = async (octo, repo, { path = 'package.json', ref = 'master' } = {}) => {
+    const response = await octo.repos.getContent({ ref, path, ...repo });
     const version = JSON.parse(Buffer.from(response.data.content, "base64")).version;
-    return version;
+    return {version, ref};
 }
 
-const cargoToml = async (octo, repo, { path = 'Cargo.toml' } = {}) => {
-    const response = await octo.repos.getContent({ ref: REF, path, ...repo });
+const cargoToml = async (octo, repo, { path = 'Cargo.toml', ref = 'master' } = {}) => {
+    const response = await octo.repos.getContent({ ref, path, ...repo });
     const version = TOML.parse(Buffer.from(response.data.content, "base64")).package.version;
-    return version;
+    return {version, ref};
 }
 
 const more = (text) => {
@@ -49,8 +48,8 @@ const reposFn = {
     "tonlabs/ton-sdk": async (octo, repo) => await cargoToml(octo, repo, { path: "ton_client/Cargo.toml" }),
     "tonlabs/ton-client-js": async (octo, repo) => await packageJson(octo, repo, { path: "packages/core/package.json" }),
     "tonlabs/tonos-se": async (octo, repo) => await cargoToml(octo, repo, { path: "ton-node-se/ton_node_startup/Cargo.toml" }),
-    "tonlabs/tondev": packageJson,
-    "tonlabs/appkit-js": packageJson,
+    "tonlabs/tondev": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
+    "tonlabs/appkit-js": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
 /*
     "tonlabs/ton-client-rs": cargoToml,
     "tonlabs/ton-client-web-js": packageJson,
@@ -127,7 +126,7 @@ const inputFieldAsync = () => {
     term.fullscreen({ noAlternate: false });
     while(true) {
         term.moveTo(0, 3).eraseDisplayBelow();
-        term.bold("TARGET\n").styleReset("branch: ").bold.yellow(target_commitish + '\n\n');
+        //term.bold("TARGET\n").styleReset("branch: ").bold.yellow(target_commitish + '\n\n');//TODO
         term.bold("CURRENT\n").styleReset("Version: ").bold.green(version + '\n').gray(more(bodyRelease) + '\n\n');
         const reposKit = await Promise.all(repoList.map(repo => octokit.repos.listReleases({ per_page: 1, ...repo }).catch(err => console.error('fail', err))));
         const reposAct = await Promise.all(repoList.map(repo => reposFn[repo.owner+'/'+repo.repo](octokit, repo)));
@@ -150,35 +149,36 @@ const inputFieldAsync = () => {
                 term.gray('unknown');
             }
             term(' ')
-            if (repo.version === repo.actual) {
-                term.cyan(repo.actual);
-            } else if (semver.gt(repo.version, repo.actual)) {
-                term.brightRed(repo.actual);
+            if (repo.version === repo.actual.version) {
+                term.cyan(repo.actual.version);
+            } else if (semver.gt(repo.version, repo.actual.version)) {
+                term.brightRed(repo.actual.version);
             } else {
-                term.brightYellow(repo.actual);
+                term.brightYellow(repo.actual.version);
             }
             term('\n');
         });
         term('\n');
 
         const repoName = await singleColumnMenuAsync(repoNames); //, {continueOnSubmit: true}
-        term.gray(`Release ${repoName}? [y/N]`);
+        const idx = repoNames.indexOf(repoName);
+        const target_commitish = repos[idx].actual.ref //TODO actual ref should be equal to current git branch
+        term.gray(`Release ${repoName} [target_commitish:${target_commitish}]? [y/N]`);
         const release = await yesOrNoAsync({yes: ['y'], no: ['n', 'ENTER']});
         if (release) {
             term.yellow('\nStarting release...\n');
-            const idx = repoNames.indexOf(repoName);
             const repo = repoList[idx];
-            //console.log(repo);
             if (repos[idx].version == version) {
                 term.bold.yellow('WARNING!').white(' version already exists\n');
             } else if (semver.gt(repos[idx].version, version)) {
                 term.bold.yellow('WARNING!').white(' attempt to downgrade\n');
             } else {
+                //TODO createRelease build light tag without annotation, so lerna doesn't know about it
                 const res = await octokit.repos.createRelease({
                     draft: false,
                     prerelease: false,
                     body: bodyRelease,
-                    target_commitish: REF, // TODO:
+                    target_commitish,
                     name: `Version: ${version}`,
                     tag_name: version,
                     ...repo
