@@ -18,7 +18,7 @@
     "parse-github-url": "^1.0.2",
     "semver": "^7.3.2",
     "shelljs": "^0.8.4",
-    "simple-git": "^2.21.0"
+    "simple-git": "^2.39.0"
   },
   "devDependencies": {},
   "description": ""

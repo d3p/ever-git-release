@@ -45,11 +45,12 @@ const more = (text) => {
 //TODO: class
 const reposFn = {
     "tonlabs/ton-q-server": packageJson,
-    "tonlabs/ton-sdk": async (octo, repo) => await cargoToml(octo, repo, { path: "ton_client/Cargo.toml" }),
-    "tonlabs/ton-client-js": async (octo, repo) => await packageJson(octo, repo, { path: "packages/core/package.json" }),
-    "tonlabs/tonos-se": async (octo, repo) => await cargoToml(octo, repo, { path: "ton-node-se/ton_node_startup/Cargo.toml" }),
-    "tonlabs/tondev": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
-    "tonlabs/appkit-js": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
+    "tonlabs/ever-sdk": async (octo, repo) => await cargoToml(octo, repo, { path: "ton_client/Cargo.toml" }),
+    "tonlabs/ever-sdk-js": async (octo, repo) => await packageJson(octo, repo, { path: "packages/core/package.json" }),
+    "tonlabs/evernode-se": async (octo, repo) => await cargoToml(octo, repo, { path: "ton-node-se/ton_node_startup/Cargo.toml" }),
+    "tonlabs/everdev": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
+    "tonlabs/everdev-vscode": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
+    "tonlabs/ever-appkit-js": async (octo, repo) => await packageJson(octo, repo, { ref: "main" }),
 /*
     "tonlabs/ton-client-rs": cargoToml,
     "tonlabs/ton-client-web-js": packageJson,
